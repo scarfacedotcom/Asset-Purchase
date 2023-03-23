@@ -8,10 +8,10 @@ import "../interfaces/AggregatorV3Interface.sol";
 import "../src/AssetPurchase.sol";
 
 contract AssetPurchaseTest is Test {
-    // using Addresses for address;
-    // using Expect for uint256;
+    
 
     AssetPurchase public assetPurchase;
+    
     AggregatorV3Interface public priceFeed;
 
     function setUp() public {
@@ -26,14 +26,14 @@ contract AssetPurchaseTest is Test {
     }
 
     function testPurchaseAsset() public {
-        // Get the latest price from the Price Feed
+        
         int256 price = assetPurchase.getLastestPrice();
         price.expect().to.be.above(0);
 
-        // Calculate the expected value in USDT for the asset
+
         uint256 usdtValue = uint256(price) * uint256(assetPurchase.assetPrice()) / 10 ** 18;
 
-        // // Call purchaseAsset with enough Ether to buy the asset
+
         // uint256 ethValue = usdtValue * 10 ** 10; // Multiply by 10^10 because 1 USDT = 10^10 Wei
         // expect(() => assetPurchase.purchaseAsset{ value: ethValue }()).to.change(() => assetPurchase.purchased()).from(false).to(true);
     }
