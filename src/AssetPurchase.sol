@@ -8,7 +8,7 @@ import "./IERC20.sol";
 
 contract AssetPurchase {
     
-    address public owner;
+    address payable public owner;
     uint256 public price;
     uint256 public assetPrice = 3.5 ether;
     bool public purchased;
@@ -28,13 +28,13 @@ contract AssetPurchase {
 
     // Returns latest price
     function getLastestPrice() public view returns (int256) {
-        (, int256 priceOfToken, , , ) = priceFeed.lastRoundData();
+        (, int256 priceOfToken, , , ) = priceFeed.latestRoundData();
         require(priceOfToken > 0, "Network error");
     }
 
     function purchaseAsset() public payable {
         require(!purchased, "item sold out");
-        price = getLastestPrice();
+        price = uint256(getLastestPrice());
         uint256 usdtValue = price * assetPrice / 10 ** 18;
         require(msg.value >= usdtValue, "Yoooo, you ate broke");
         owner.transfer(msg.value);
