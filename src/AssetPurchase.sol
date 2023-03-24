@@ -1,70 +1,76 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.13;
+import "lib/chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol";
+import "lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import "lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol";
 
-pragma solidity ^0.8.17;
+/**
+ * @author Scar Face dot ETH
+ * @title Market Contract
+ * @notice This contract allows users to list and purchase NFTs with DAI.
+ */
 
-// Import interfaces
-import "../interfaces/AggregatorV3Interface.sol";
-import "./IERC20.sol";
+contract Market {
+    using SafeCast for int256; // use SafeCast library to convert int256 to uint
 
-contract AssetPurchase {
-    // Declare variables
-    address payable public owner;
-
-    uint256 public price;
-
-    uint256 public assetPrice = 3.5 ether;
-
-    bool public purchased;
-
-    address public priceFeedAddress;
-
-    AggregatorV3Interface public priceFeed;
-
-    // Constructor function
-    constructor(address _priceFeedAddress) {
-        // Set the price feed address
-        priceFeedAddress = _priceFeedAddress;
-
-        // Create a new price feed interface
-        priceFeed = AggregatorV3Interface(priceFeedAddress);
-
-        // Set purchased to false
-        purchased = false;
-
-        // priceFeedAddress = 0xD4a33860578De61DBAbDc8BFdb98FD742fA7028e;
+    // declare a struct to store the details of an item
+    struct ItemDetails {
+        uint tokenID; // id of the NFT token
+        address seller; // address of the seller
+        bool status; // status of the item
     }
 
-    // Function to get the latest price
-    function getLastestPrice() public view returns (int256) {
-        // Get the latest round data from the price feed
-        (, int256 priceOfToken, , , ) = priceFeed.latestRoundData();
+    address owner; // address of the contract owner
+    IERC721 nftAddress; // address of the ERC721 token contract
+    IERC20 DaiContract; // address of the DAI token contract
+    AggregatorV3Interface internal ETHusdpriceFeed; // Chainlink Price Feed for ETH/USD
+    AggregatorV3Interface internal DAIusdpriceFeed; // Chainlink Price Feed for DAI/USD
+    mapping(uint => ItemDetails) itemInfo; // mapping to store the details of all listed items
 
-        // Check if the price is greater than 0
-        require(priceOfToken > 0, "Network error");
+    // constructor function to initialize the contract
+    constructor(address _nftAddress) {
+        nftAddress = IERC721(_nftAddress); // set the address of the ERC721 token contract
+        DaiContract = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F); // set the address of the DAI token contract
+        owner = msg.sender; // set the address of the contract owner
 
-        // Return the price of the token
-        return priceOfToken;
+        // set the addresses of the Chainlink Price Feed contracts for ETH/USD and DAI/USD
+        DAIusdpriceFeed = AggregatorV3Interface(
+            0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9
+        );
+        ETHusdpriceFeed = AggregatorV3Interface(
+            0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419
+        );
     }
 
-    // Function to purchase the asset
-    function purchaseAsset() public payable {
-        // Check if the asset has already been purchased
-        require(!purchased, "Item sold out");
+    // function to list an item for sale
+    function listItem(uint _tokenitemID) public {
+        ItemDetails storage _a = itemInfo[_tokenitemID]; // get the details of the item from the mapping
+        _a.tokenID = _tokenitemID; // set the id of the NFT token
+        _a.seller = msg.sender; // set the address of the seller
+        _a.status = true; // set the status of the item to true, which means it is for sale
+    }
 
-        // Get the latest price
-        price = uint256(getLastestPrice());
+    // function to purchase an item
+    function purchaseItem(uint _tokenID) public payable {
+        uint balance = DaiContract.balanceOf(msg.sender); // get the balance of the DAI token of the buyer
+        require(itemInfo[_tokenID].status == true, "not for sale"); // check if the item is for sale
+        require(balance >= 3.5 ether); // check if the buyer has enough balance to make the purchase
+        uint ethusdCurrentPrice = getETHUSDPrice(); // get the current ETH/USD price from the Chainlink Price Feed
+        uint usdtusdCurrentPrice = getDAIUSDPrice(); // get the current DAI/USD price from the Chainlink Price Feed
+        uint _amountINUSdt = (3.5 ether * ethusdCurrentPrice) /
+            usdtusdCurrentPrice;
+        DaiContract.transferFrom(msg.sender, address(this), _amountINUSdt);
+        nftAddress.transferFrom(owner, msg.sender, _tokenID);
+    }
 
-        // Calculate the value of the asset in USDT
-        uint256 usdtValue = price * assetPrice / 10 ** 18;
+    function getDAIUSDPrice() public view returns (uint) {
+        (, int price, , , ) = DAIusdpriceFeed.latestRoundData();
+        return price.toUint256();
+    }
 
-        // Check if the user has sent enough funds to purchase the asset
-        require(msg.value >= usdtValue, "Insufficient funds");
-
-        // Transfer the funds to the owner
-        owner.transfer(msg.value);
-
-        // Set purchased to true
-        purchased = true;
+    function getETHUSDPrice() public view returns (uint) {
+        (, int price, , , ) = ETHusdpriceFeed.latestRoundData();
+        return price.toUint256();
     }
 }
-
